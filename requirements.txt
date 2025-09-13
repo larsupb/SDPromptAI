@@ -1,0 +1,19 @@
+# Danbooru-related
+pybooru
+
+# General
+tqdm
+faiss-cpu
+numpy
+requests
+sentence-transformers
+diffusers
+torch
+triton
+ollama
+accelerate
+PyYAML
+
+# LoRA training
+peft
+bitsandbytes

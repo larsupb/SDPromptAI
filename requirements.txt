@@ -6,6 +6,7 @@ tqdm
 faiss-cpu
 numpy
 requests
+transformers
 sentence-transformers
 diffusers
 torch

@@ -6,7 +6,7 @@ from transformers import AutoTokenizer, AutoModel
 # Config
 # -------------------
 #EMBED_MODEL = "intfloat/e5-large-v2"  # lightweight, can swap for better
-EMBED_MODEL = "Qwen/Qwen3-Embedding-4B"
+#EMBED_MODEL = "Qwen/Qwen3-Embedding-4B"
 
 
 class TransformersEmbedder:

@@ -1,9 +1,16 @@
+import os.path
+
 import faiss
 import numpy as np
 
 
 class FaissStorage:
     def __init__(self, path):
+        # check if path exists
+        if not path:
+            raise ValueError("Path to FAISS index must be provided.")
+        if not os.path.exists(path):
+            raise ValueError(f"FAISS index file not found at {path}")
         self.index = faiss.read_index(path)
 
     @staticmethod

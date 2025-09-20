@@ -16,7 +16,7 @@ class TransformersEmbedder:
             model_name,
             trust_remote_code=True,
             device_map="auto" if device == "cuda" else None,
-            torch_dtype=torch.float16
+            dtype=torch.float16
         )
         self.batch_size = batch_size
 

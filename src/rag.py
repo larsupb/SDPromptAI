@@ -1,8 +1,7 @@
-from .ollama_chat import OllamaChat
-
+from .settings import get_settings
 
 def generate_faiss_query(user_prompt: str) -> str:
-    rag = OllamaChat(system_prompt=
+    rag = get_settings().get_llm(system_prompt=
                              "You are an AI assistant that created optimal search queries for a FAISS index. "
                              "FAISS is a vector database that can be searched with text queries. FAISS returns the most "
                              "similar items to the query based on their vector representation. "

@@ -1,15 +1,6 @@
 import logging
-import re
 import sqlite3
 from typing import Set, List
-
-
-def curate(prompt):
-    # Remove leading/trailing whitespace and convert to lowercase
-    prompt = prompt.strip().lower()
-    # Remove line breaks and excessive spaces
-    prompt = re.sub(r'\s+', ' ', prompt)
-    return prompt
 
 
 class DB:
@@ -42,7 +33,8 @@ class DB:
                             cfgScale        REAL,
                             clipSkip        INTEGER,
                             positive_prompt TEXT,
-                            negative_prompt TEXT
+                            negative_prompt TEXT,
+                            rating          INTEGER
                         )
                         """)
             conn.commit()
@@ -87,7 +79,7 @@ class DB:
         conn.close()
         print(f"Inserted {len(tags)} tags into the database.")
 
-    def fetch_prompts(self, image_ids):
+    def fetch_prompts(self, image_ids) -> List[str]:
         conn = sqlite3.connect(self.db_path)
         cur = conn.cursor()
 
@@ -96,14 +88,14 @@ class DB:
             cur.execute(f"SELECT positive_prompt FROM images WHERE id={image_id}")
             row = cur.fetchone()
             if row:
-                prompts.append(curate(row[0]))
+                prompts.append(row[0])
             else:
                 logging.warning("Could not find prompt for image id {}".format(image_id))
         conn.close()
         return prompts
 
 
-    def fetch_all_prompts(self, prompt_column="positive_prompt", n_top=-1) -> (List[int], List[str]):
+    def fetch_curated_prompts(self, prompt_column="positive_prompt", n_top=-1, random=False) -> List[dict[id, str]]:
         if prompt_column not in ["positive_prompt", "interpreted_prompt"]:
             raise ValueError("prompt_column must be either 'positive_prompt' or 'interpreted_prompt'")
 
@@ -111,22 +103,19 @@ class DB:
         cur = conn.cursor()
 
         prompt = f"SELECT Id, {prompt_column} FROM images WHERE interpreted_prompt IS NOT NULL"  # TODO Remove hack
+        if random:
+            prompt = prompt + " ORDER BY RANDOM()"
         if n_top > 0:
             prompt = prompt + " LIMIT " + str(n_top)
         cur.execute(prompt)
         rows = cur.fetchall()
-
         conn.close()
-        # Join all prompts into a single string
 
-        # Create a list of prompts
-        ids = []
-        positive_prompts = []
+        out = []
         for row in rows:
-            ids = ids + [row[0]]
-            positive_prompts.append(curate(row[1]))
+            out.append({"id": row[0], "prompt": row[1]})
+        return out
 
-        return ids, positive_prompts
 
     def fetch_all_zero_rating_prompts(self):
         conn = sqlite3.connect(self.db_path)
@@ -169,19 +158,6 @@ class DB:
         conn.commit()
         conn.close()
 
-    def fetch_random_prompts(self, prompt_count, prompt_column="interpreted_prompt"):
-        conn = sqlite3.connect(self.db_path)
-        cur = conn.cursor()
-        cur.execute(f"SELECT {prompt_column} FROM images WHERE interpreted_prompt IS NOT NULL ORDER BY RANDOM() LIMIT {prompt_count}")
-        rows = cur.fetchall()
-
-        out = []
-        for row in rows:
-            out.append(curate(row[0]))
-
-        conn.close()
-        return out
-
     def fetch_all_uninterpreted_prompts(self):
         conn = sqlite3.connect(self.db_path)
         cur = conn.cursor()
@@ -189,6 +165,37 @@ class DB:
         rows = cur.fetchall()
         conn.close()
         return rows
+
+    def fetch_prompt_duos(self, n_top=-1, random=True) -> list[tuple[str, str]]:
+        conn = sqlite3.connect(self.db_path)
+        cur = conn.cursor()
+        query = (
+            "SELECT positive_prompt AS danbooru_prompt, interpreted_prompt AS natural_prompt "
+            "FROM images "
+            "WHERE interpreted_prompt IS NOT NULL "
+            "AND LENGTH(positive_prompt) > 0 AND LENGTH(interpreted_prompt) > 0 "
+        )
+        if random:
+            query += "ORDER BY RANDOM() "
+        if n_top > 0:
+            query += f"LIMIT {n_top}"
+        cur.execute(query)
+        rows = cur.fetchall()  # list of (danbooru_prompt, natural_prompt)
+        conn.close()
+        return rows
+
+    def fetch_danbooru_tags(self, n_top=-1, random=True) -> list[tuple[str, str]]:
+        conn = sqlite3.connect(self.db_path)
+        cur = conn.cursor()
+        query = "SELECT DISTINCT name, wiki FROM tags"
+        if random:
+            query += " ORDER BY RANDOM()"
+        if n_top > 0:
+            query += f" LIMIT {n_top}"
+        cur.execute(query)
+        tags = cur.fetchall()  # list of (tag,)
+        conn.close()
+        return tags
 
     def update_image_interpreted_prompt(self, image_id, interpreted_prompt):
         conn = sqlite3.connect(self.db_path)

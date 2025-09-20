@@ -1,5 +1,6 @@
-from .transformer_encoding import TransformersEmbedder
 from .sdxl_encoding import SDXLEmbedder
+from .transformer_encoding import TransformersEmbedder
+
 
 def get_encoder(encoder_name: str, device: str):
     if encoder_name == "sdxl":

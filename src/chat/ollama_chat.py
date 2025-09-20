@@ -39,7 +39,3 @@ class OllamaChat:
             if message['role'] == 'assistant':
                 return message['content']
         return ""
-
-
-
-

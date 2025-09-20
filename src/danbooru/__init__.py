@@ -1,1 +1,2 @@
-from .prompt_interpreter import rate, interpret
+from .prompt_interpreter import interpret
+from .prompt_rater import rate

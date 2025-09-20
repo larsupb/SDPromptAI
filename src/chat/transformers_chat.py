@@ -7,14 +7,11 @@ torch.backends.cuda.enable_mem_efficient_sdp(True)
 torch.backends.cuda.enable_math_sdp(True)
 
 from peft import PeftModel
-from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
+from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer, BitsAndBytesConfig
 
 
 class TransformersChat:
     _instance = None  # singleton instance
-
-    model_name_or_path = "/raid/oobabooga/models/hf/dphn/Dolphin-Mistral-24B-Venice-Edition"
-    lora_path = "./models/loras/mistral24b_lora_danbooru_v4"
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
@@ -22,13 +19,22 @@ class TransformersChat:
             cls._instance._initialized = False
             cls._instance._attach_lora = False
             cls._instance._system_prompt = None
+            cls._instance.model_name_or_path = None
+            cls._instance.lora_path = None
 
         # Clear messages for new instance
         cls._instance.messages = []
         return cls._instance
 
-    def __init__(self, system_prompt: str = None, attach_lora: bool = False, device_map="auto", max_history: int = -1):
+    def __init__(self,
+                 model_name_or_path: str,
+                 lora_path: str = None,
+                 system_prompt: str = None,
+                 attach_lora: bool = False,
+                 device_map="auto",
+                 max_history: int = -1):
         if getattr(self, "_initialized", False):
+            # Allow dynamic reloading of LoRA or system prompt
             if self._attach_lora != attach_lora:
                 self.handle_lora_change(attach_lora)
             if self._system_prompt != system_prompt:
@@ -40,9 +46,12 @@ class TransformersChat:
         self._attach_lora = attach_lora
         self._system_prompt = system_prompt
 
+        self.model_name_or_path = model_name_or_path
+        self.lora_path = lora_path
+
         self.messages = []
         self.max_history = max_history
-        if self.system_prompt:
+        if self._system_prompt:
             self.messages.append({'role': 'system', 'content': self._system_prompt})
 
         # Model
@@ -67,7 +76,7 @@ class TransformersChat:
         # Model
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_name_or_path,
-            dtype=torch.bfloat16,
+            dtype=torch.float16,
             device_map=device_map,
             trust_remote_code=True,
             low_cpu_mem_usage=True,
@@ -76,7 +85,7 @@ class TransformersChat:
         print("🚀 Loaded base model from", self.model_name_or_path)
 
     def handle_lora_change(self, attach_lora):
-        if attach_lora:
+        if attach_lora and self.lora_path:
             if not isinstance(self.model, PeftModel):
                 self.model = PeftModel.from_pretrained(
                     self.model,
@@ -92,7 +101,6 @@ class TransformersChat:
                 self.model = base_model
                 print("❌ Unloaded PEFT adapters, reverted to base model")
         self._attach_lora = attach_lora
-
 
     def chat(self, user_message: str, temperature: float = 0.7,
              top_k: int = 50, top_p: float = 1.0, repetition_penalty: float = 1.1) -> str:

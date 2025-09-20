@@ -10,6 +10,11 @@ class Settings(BaseSettings):
     db_path: str = "data/pony_prompts.db"
     faiss_path: str = "data/pony_prompts.index"
 
+    model_name_or_path: str = "dphn/Dolphin-Mistral-24B-Venice-Edition"
+    lora_path: str = "./models/loras/mistral24b_lora_danbooru_v4"
+
+    civitai_api_key: str = "<KEY>"
+
     # Read environment variables from a .env file if present
     class Config:
         env_file = ".env"
@@ -27,7 +32,8 @@ def get_llm(system_prompt: str = None, **kwargs):
         raise ValueError(f"Unknown llm_engine: {settings.llm_engine}")
 
     if settings.llm_engine == "transformers":
-        return TransformersChat(system_prompt=system_prompt, **kwargs)
+        return TransformersChat(model_name_or_path=settings.model_name_or_path,
+                                lora_path=settings.lora_path, system_prompt=system_prompt, **kwargs)
     elif settings.llm_engine == "ollama":
         return OllamaChat(system_prompt=system_prompt, **kwargs)
     return None

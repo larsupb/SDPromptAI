@@ -114,4 +114,4 @@ def interpret(chat_engine, prompt: str) -> str:
 
     user_message = f"Create a brief natural-language based prompt in continuous text for this:\n{prompt}\n\nTag definitions:\n{ask_wiki(prompt)}"
 
-    return chat.chat(user_message, temperature=0.7)
+    return chat.chat(user_message, 512, temperature=0.7)

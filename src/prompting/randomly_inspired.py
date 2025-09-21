@@ -1,4 +1,4 @@
-import settings
+from ..settings import get_llm
 
 
 def random_prompt(db, prompting_instruction, prompt_count=10):
@@ -18,6 +18,6 @@ def random_prompt(db, prompting_instruction, prompt_count=10):
     print("Querying the llm to generate a new prompt...")
     print(user_prompt)
 
-    chat = settings.get_llm(system_prompt=system_prompt)
-    chat.chat(user_prompt, temperature=1)
+    chat = get_llm(system_prompt=system_prompt)
+    chat.chat(user_prompt, 512, temperature=1)
     return chat

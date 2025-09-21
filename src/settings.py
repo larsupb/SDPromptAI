@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pydantic_settings import BaseSettings
 
-from src.chat import TransformersChat, OllamaChat
+from src.chat import IChatEngine, TransformersChat, OllamaChat
 
 
 class Settings(BaseSettings):
@@ -10,10 +10,9 @@ class Settings(BaseSettings):
     db_path: str = "data/pony_prompts.db"
     faiss_path: str = "data/pony_prompts.index"
 
-    model_name_or_path: str = "dphn/Dolphin-Mistral-24B-Venice-Edition"
-    lora_path: str = "./models/loras/mistral24b_lora_danbooru_v4"
-
-    civitai_api_key: str = "<KEY>"
+    model_name_or_path: str
+    lora_path: str
+    civitai_api_key: str
 
     # Read environment variables from a .env file if present
     class Config:
@@ -26,7 +25,7 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     return Settings()
 
-def get_llm(system_prompt: str = None, **kwargs):
+def get_llm(system_prompt: str = None, **kwargs) -> IChatEngine:
     settings = get_settings()
     if settings.llm_engine not in ["transformers", "ollama"]:
         raise ValueError(f"Unknown llm_engine: {settings.llm_engine}")
@@ -36,5 +35,6 @@ def get_llm(system_prompt: str = None, **kwargs):
                                 lora_path=settings.lora_path, system_prompt=system_prompt, **kwargs)
     elif settings.llm_engine == "ollama":
         return OllamaChat(system_prompt=system_prompt, **kwargs)
-    return None
+    else:
+        raise ValueError(f"Unknown llm_engine: {settings.llm_engine}")
 

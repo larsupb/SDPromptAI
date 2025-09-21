@@ -4,12 +4,12 @@ import os
 import tqdm
 import yaml
 
-from prompt_search import search_prompts
-from settings import get_settings
+from src.settings import get_settings, get_llm
 
 from src.civitai import fetch_loop
 from src.prompting.improve import prompt_improve_with_similar, prompt_improve
 from src.prompting.randomly_inspired import random_prompt
+from src.prompt_search import search_prompts
 from src.danbooru import interpret
 from src.danbooru.prompt_interpreter import curate
 from src.db import DB
@@ -22,7 +22,7 @@ def interpret_prompts(db: DB):
     rows = db.fetch_all_uninterpreted_prompts()
 
     for image_id, prompt in tqdm.tqdm(rows, desc="Interpreting prompts", unit="prompt"):
-        interpreted_prompt = interpret(settings.get_llm, curate(prompt))
+        interpreted_prompt = interpret(get_llm(), curate(prompt))
         db.update_image_interpreted_prompt(image_id, interpreted_prompt)
 
 
@@ -48,14 +48,14 @@ def prompt_generator_loop(db: DB, faiss_path, mode, prompting_style: dict):
         # Retrieve similar prompts from the database
         similar_prompts = search_prompts(db, faiss_path, user_prompt, top_k=10)
         # Convert into a more structured prompt
-        prompt_improve_with_similar(db, user_prompt, similar_prompts, prompting_style["improve_similar"])
+        prompt_improve_with_similar(user_prompt, similar_prompts, prompting_style["improve_similar"])
     elif mode == "improve_similar":
         user_prompt = input("Please enter the prompt you would like to use: ")
         # Generate search query for FAISS
         search_query = generate_faiss_query(user_prompt)
         # Retrieve similar prompts from the database
         similar_prompts = search_prompts(db, faiss_path, search_query, top_k=10)
-        chat = prompt_improve_with_similar(db, user_prompt, similar_prompts, prompting_style["improve_similar"])
+        chat = prompt_improve_with_similar(user_prompt, similar_prompts, prompting_style["improve_similar"])
     else: ## mode == "improve":
         user_prompt = input("Please enter the prompt you would like to use: ")
         chat = prompt_improve(user_prompt, prompting_style["improve"])
@@ -70,7 +70,7 @@ def prompt_generator_loop(db: DB, faiss_path, mode, prompting_style: dict):
         print("Querying the llm to generate a new prompt...")
         print(user_prompt)
 
-        chat.chat(user_prompt, temperature=1)
+        chat.chat(user_prompt, 512, temperature=1)
 
 
 if __name__ == "__main__":
@@ -81,9 +81,6 @@ if __name__ == "__main__":
 
     mode = input("Enter mode fetch/prune/rate/calc/prompt (default: prompt): ").strip().lower() or "prompt"
     if mode == "fetch":
-        if not os.getenv("CIVITAI_API_KEY"):
-            print("CIVITAI_API_KEY not set. Exiting.")
-            exit(1)
         model_hashes_input = input(
             "Enter json file with model hashes (default: model/pony_models.json]): ").strip() or "models/pony_models.json"
         if not model_hashes_input or not os.path.exists(model_hashes_input):

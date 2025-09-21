@@ -36,11 +36,9 @@ pony_sdxl:
       2. the main subject followed by the action in which the subject is engaged (e.g. sitting, standing, walking, etc.)
       3. details about the subject (e.g. clothing, accessories, pose, expression, etc.)
       4. details about the environment (background, setting) (e.g. location, time of day, weather, etc.)
-      5. tags about the lighting and color scheme (e.g. warm, cool, dramatic, soft, etc.) and eventually an artistic style
-      6. camera details (e.g. nikon, 85mm, f1.4, bokeh, etc.)
-      7. Eventually add other quality tags like "masterpiece", "best_quality", "highres" or similar
+      5. tags about the lighting and color scheme (e.g. warm, cool, dramatic, soft, etc.)
 
-      Additional Guidelines:
+      Additional Guidelines:      
       - Make sure the prompt reflects the key elements of the user's prompt
       - Make sure the tags don't contradict each other (e.g. don't use both "day" and "night", or "young" and "mature") in the prompt.
       - Tags need to be separated by commas
@@ -51,7 +49,11 @@ pony_sdxl:
       Output:
       Only print the generated prompt, nothing else!
     user_prompt: |
-      {user_prompt}
+      Convert this natural-language based prompt to a danbooru-style based prompt
+      
+      Natural prompt: {user_prompt}
+      
+      Danbooru prompt:
   random:
     system_prompt: |
       You are a prompt generator. You are given a list of random prompt examples. 
@@ -71,9 +73,8 @@ pony_sdxl:
       2. the main subject followed by the action in which the subject is engaged (e.g. sitting, standing, walking, etc.)
       3. details about the subject (e.g. clothing, accessories, pose, expression, etc.)
       4. details about the environment (background, setting) (e.g. location, time of day, weather, etc.)
-      5. tags about the lighting and color scheme (e.g. warm, cool, dramatic, soft, etc.) and eventually an artistic style
-      6. camera details (e.g. nikon, 85mm, f1.4, bokeh, etc.)
-      7. Eventually add other quality tags like "masterpiece", "best_quality", "highres" or similar
+      5. tags about the lighting and color scheme (e.g. warm, cool, dramatic, soft, etc.) and eventually an artistic style and camera details
+      6. Eventually add other quality tags like "masterpiece", "best_quality", "highres" or similar
 
       Additional guidelines:
       - **Important:** Make sure the tags don't contradict each other (e.g. don't use both "day" and "night", or "young" and "mature") in the prompt.

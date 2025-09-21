@@ -53,7 +53,7 @@ def rate(llm_engine, prompts: List[str]) -> str:
     prompt = f"Rate the following prompts on a scale from 1 to 10: " + prompts
     print("Sending batch to rater:", prompt)
 
-    response = chat.chat(prompt, temperature=0.5, format="json")
+    response = chat.chat(prompt, 512, temperature=0.5)
     print("Response from rater:", response)
 
     ratings = json.loads(response)['ratings']

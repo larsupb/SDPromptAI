@@ -36,6 +36,3 @@ def test_transformers_prompt_improve_similar():
     similar_prompts = search_prompts(db, get_settings().faiss_path, search_query, top_k=10)
     # Improve the prompt using similar prompts
     prompt_improve_with_similar(db, user_prompt, similar_prompts, style_dict)
-
-
-

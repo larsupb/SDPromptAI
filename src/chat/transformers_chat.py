@@ -2,22 +2,24 @@ import threading
 
 import torch
 
+from .chat_engine import IChatEngine
+
 torch.backends.cuda.enable_flash_sdp(True)        # enable FlashAttention kernel
 torch.backends.cuda.enable_mem_efficient_sdp(True)
 torch.backends.cuda.enable_math_sdp(True)
 
 from peft import PeftModel
-from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer, BitsAndBytesConfig
+from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
 
 
-class TransformersChat:
+class TransformersChat(IChatEngine):
     _instance = None  # singleton instance
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._initialized = False
-            cls._instance._attach_lora = False
+            cls._instance._lora_attached = False
             cls._instance._system_prompt = None
             cls._instance.model_name_or_path = None
             cls._instance.lora_path = None
@@ -35,7 +37,7 @@ class TransformersChat:
                  max_history: int = -1):
         if getattr(self, "_initialized", False):
             # Allow dynamic reloading of LoRA or system prompt
-            if self._attach_lora != attach_lora:
+            if self._lora_attached != attach_lora:
                 self.handle_lora_change(attach_lora)
             if self._system_prompt != system_prompt:
                 self.system_prompt = system_prompt
@@ -43,7 +45,7 @@ class TransformersChat:
             return  # Already initialized
 
         self._initialized = True
-        self._attach_lora = attach_lora
+        self._lora_attached = attach_lora
         self._system_prompt = system_prompt
 
         self.model_name_or_path = model_name_or_path
@@ -94,15 +96,13 @@ class TransformersChat:
                     device_map="auto",
                     trust_remote_code=True
                 )
-                print("➕ Loaded PEFT adapters from", self.lora_path)
+            self._lora_attached = True
+            print("➕ Loaded PEFT adapters from", self.lora_path)
         else:
-            if isinstance(self.model, PeftModel):
-                base_model = self.model.get_base_model()
-                self.model = base_model
-                print("❌ Unloaded PEFT adapters, reverted to base model")
-        self._attach_lora = attach_lora
+            self._lora_attached = False
+            print("➖ LoRA adapters detached, using base model")
 
-    def chat(self, user_message: str, temperature: float = 0.7,
+    def chat(self, user_message: str, max_new_tokens: int = 512, do_sample=True, temperature: float = 0.7,
              top_k: int = 50, top_p: float = 1.0, repetition_penalty: float = 1.1) -> str:
 
         if self.max_history > 0 and len(self.messages) >= self.max_history * 2 + 1:
@@ -117,26 +117,46 @@ class TransformersChat:
             return_dict=True
         ).to("cuda")
 
-        # Ensure pad_token_id is set
-        pad_token_id = self.tokenizer.pad_token_id or self.tokenizer.eos_token_id
+        # --- Safe EOS/PAD handling ---
+        eos_token_id = getattr(self.model.config, "eos_token_id", None)
+        if eos_token_id is None:
+            eos_token_id = self.tokenizer.eos_token_id
+            self.model.config.eos_token_id = eos_token_id
+
+        pad_token_id = getattr(self.model.config, "pad_token_id", None)
+        if pad_token_id is None:
+            if self.tokenizer.pad_token_id is not None:
+                pad_token_id = self.tokenizer.pad_token_id
+            else:
+                pad_token_id = eos_token_id
+            self.model.config.pad_token_id = pad_token_id
 
         # Streamer setup
         streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=True)
 
+        # Pick correct target (base or LoRA-wrapped)
+        if self._lora_attached:
+            target = self.model.generate
+        else:
+            if hasattr(self.model, "get_base_model"):
+                target = self.model.get_base_model().generate
+            else:
+                target = self.model.generate
+
         # Run generate in a background thread
         thread = threading.Thread(
-            target=self.model.generate,
+            target=target,
             kwargs=dict(
                 input_ids=model_inputs["input_ids"],
                 attention_mask=model_inputs["attention_mask"],
-                max_new_tokens=512,
-                do_sample=True,
+                max_new_tokens=max_new_tokens,
+                do_sample=do_sample,
                 temperature=temperature,
                 top_k=top_k,
                 top_p=top_p,
                 repetition_penalty=repetition_penalty,
                 pad_token_id=pad_token_id,
-                eos_token_id=self.tokenizer.eos_token_id,
+                eos_token_id=eos_token_id,
                 streamer=streamer
             )
         )
@@ -147,7 +167,7 @@ class TransformersChat:
         for token in streamer:
             generated_text += token
             print(token, end='', flush=True)
-        print()  # for newline after completion
+        print()  # newline after completion
 
         self.messages.append({'role': 'assistant', 'content': generated_text})
         return generated_text
